@@ -1,16 +1,9 @@
 # gwdg_fdo_application
 
-A new Flutter project.
+What is FDO?
+-The FAIR Digital Object Framework (FDOF) is a framework which defines a model to represent objects in a digital environment and a mechanism to create, maintain and (re)use these objects . The framework consists of a predictable identifier resolution behaviour, a mechanism to retrieve the object's metadata and an object typing system. The main goal of the FDOF is to define a set of features to provide foundational support for the FAIR principles.[1]
 
-## Getting Started
 
-This project is a starting point for a Flutter application.
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+REFERENCES
+[1] Bonino da Silva Santos, Luiz Olavo, et al. "Towards a conceptual model for the FAIR Digital Object Framework." Formal Ontology in Information Systems. IOS Press, 2023.
