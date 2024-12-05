@@ -1,3 +1,19 @@
+Updates V2:
+
+Quick Detection Page added.
+This page also allows instant object detection with the camera.
+
+Changes were made to the "Create FDO" Page.
+"Taking a Photo" and "Selecting a Photo" enabled object detection in these photos.
+
+Chatbot added.
+A chatbot was added to help users. The chatbot also has the feature of directing to pages.
+
+
+
+
+
+
 # gwdg_fdo_application
 
 What is FDO?
