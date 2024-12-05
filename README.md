@@ -9,7 +9,7 @@ This page also allows instant object detection with the camera.
 -Chatbot added.
 A chatbot was added to help users. The chatbot also has the feature of directing to pages.
 
-
+--****"Mobilenet_v1_1.0_224.tflite" model was used. This model must be downloaded and located in the assets folder.****--
 
 # GWDG_FDO_Mobile_Application
 What is FDO?
