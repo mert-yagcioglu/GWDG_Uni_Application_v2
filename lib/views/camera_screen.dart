@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:gallery_saver/gallery_saver.dart';
 import 'dart:io';
-import 'package:image_picker/image_picker.dart';
+import 'package:tflite_v2/tflite_v2.dart';
+import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
-import 'done_created.dart';
-import 'package:flutter/services.dart';
 
 class CameraScreen extends StatefulWidget {
   @override
@@ -18,38 +18,54 @@ class _CameraScreenState extends State<CameraScreen> {
   CameraController? _cameraController;
   List<CameraDescription>? _cameras;
   XFile? _imageFile;
-  final TextEditingController _colorController = TextEditingController();
-  final TextEditingController _sizeController = TextEditingController();
+  String? _predictedObject = '';
+  bool _isLoading = false;
   late Database _database;
 
   @override
   void initState() {
     super.initState();
     _initializeCamera();
+    _loadModel();
     _initDatabase();
   }
 
+  // Kamera başlatma
   Future<void> _initializeCamera() async {
-    _cameras = await availableCameras();
-    _cameraController = CameraController(
-      _cameras!.first,
-      ResolutionPreset.high,
-    );
-    await _cameraController!.initialize();
-    if (!mounted) return;
-    setState(() {});
+    try {
+      _cameras = await availableCameras();
+      _cameraController = CameraController(
+        _cameras!.first,
+        ResolutionPreset.high,
+      );
+      await _cameraController!.initialize();
+      if (!mounted) return;
+      setState(() {});
+    } catch (e) {
+      print("Kamera başlatılırken hata: $e");
+    }
   }
 
+  // Model yükleme
+  Future<void> _loadModel() async {
+    await Tflite.loadModel(
+      model: "assets/mobilenet_v1_1.0_224.tflite",
+      labels: "assets/mobilenet_v1_1.0_224.txt",
+    );
+  }
+
+  // Veritabanı başlatma
   Future<void> _initDatabase() async {
     final directory = await getApplicationDocumentsDirectory();
     final path = join(directory.path, 'fdo_database.db');
     _database = await openDatabase(path, version: 1, onCreate: (db, version) {
       return db.execute(
-        "CREATE TABLE fdo(id INTEGER PRIMARY KEY AUTOINCREMENT, imagePath TEXT, color TEXT, size TEXT)",
+        "CREATE TABLE fdo(id INTEGER PRIMARY KEY AUTOINCREMENT, imagePath TEXT)",
       );
     });
   }
 
+  // Fotoğraf çekme
   Future<void> _takePicture() async {
     if (!_cameraController!.value.isInitialized) {
       return;
@@ -59,67 +75,87 @@ class _CameraScreenState extends State<CameraScreen> {
       return;
     }
 
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
       _imageFile = await _cameraController!.takePicture();
       if (_imageFile != null) {
         await GallerySaver.saveImage(_imageFile!.path);
         setState(() {});
+
+        _runObjectDetection(_imageFile!.path);
       }
     } on CameraException catch (e) {
-      print('Error: ${e.code}\nError Message: ${e.description}');
+      print('Hata: ${e.code}\nHata Mesajı: ${e.description}');
+      setState(() {
+        _isLoading = false;
+        _predictedObject = 'Kamera hatası: ${e.description}';
+      });
     }
   }
 
+  // Galeriden fotoğraf seçme
   Future<void> _pickImageFromGallery() async {
     final XFile? image = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (image != null) {
       setState(() {
         _imageFile = image;
       });
+
+      _runObjectDetection(image.path);
     }
   }
 
-  Future<void> _saveFDO(BuildContext context) async {
-    if (_imageFile != null && _colorController.text.isNotEmpty && _sizeController.text.isNotEmpty) {
-      final directory = await getApplicationDocumentsDirectory();
-      final newImagePath = join(directory.path, _imageFile!.name);
-      await _imageFile!.saveTo(newImagePath);
+  // Fotoğrafı iyileştirme ve nesne tespiti
+  Future<void> _runObjectDetection(String imagePath) async {
+    try {
+      File file = File(imagePath);
+      img.Image? image = img.decodeImage(file.readAsBytesSync());
 
+      if (image == null) {
+        setState(() {
+          _predictedObject = 'Fotoğraf okunamadı.';
+          _isLoading = false;
+        });
+        return;
+      }
 
-      await _database.insert('fdo', {
-        'imagePath': newImagePath,
-        'color': _colorController.text,
-        'size': _sizeController.text,
+      img.Image denoisedImage = img.gaussianBlur(image, radius: 2);
+      img.Image sharpenedImage = img.adjustColor(denoisedImage, contrast: 1.2);
+      img.Image resizedImage = img.copyResize(sharpenedImage, width: 224, height: 224);
+
+      final tempDir = await getTemporaryDirectory();
+      final tempPath = '${tempDir.path}/resized_image.jpg';
+      File resizedFile = File(tempPath)..writeAsBytesSync(img.encodeJpg(resizedImage));
+
+      var recognitions = await Tflite.runModelOnImage(
+        path: resizedFile.path,
+        numResults: 1,
+        threshold: 0.1,
+        asynch: true,
+      );
+
+      setState(() {
+        _isLoading = false;
+        if (recognitions != null && recognitions.isNotEmpty) {
+          _predictedObject = 'Tahmin Edilen Nesne: ${recognitions[0]['label']}';
+        } else {
+          _predictedObject = 'Nesne tespiti yapılamadı. Lütfen tekrar deneyin.';
+        }
       });
-
-      final int lastInsertedId = await _getLastInsertedId();
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => DoneCreatedScreen(
-            imageFile: File(newImagePath),
-            fdoId: lastInsertedId.toString(),
-          ),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please complete all fields.')),
-      );
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _predictedObject = 'Nesne tanıma hatası: $e';
+      });
     }
-  }
-
-  Future<int> _getLastInsertedId() async {
-    final List<Map<String, dynamic>> results = await _database.rawQuery('SELECT last_insert_rowid()');
-    return results.first['last_insert_rowid()'] as int;
   }
 
   @override
   void dispose() {
     _cameraController?.dispose();
-    _colorController.dispose();
-    _sizeController.dispose();
     super.dispose();
   }
 
@@ -131,24 +167,41 @@ class _CameraScreenState extends State<CameraScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Camera'),
+        title: Text('Kamera'),
         backgroundColor: Colors.blue,
-        actions: [
-          if (_imageFile != null)
-            IconButton(
-              icon: Icon(Icons.save, color: Colors.white),
-              onPressed: () {
-                _saveFDO(context);
-              },
-            ),
-        ],
       ),
       body: Column(
         children: [
           Expanded(
             child: _imageFile == null
                 ? CameraPreview(_cameraController!)
-                : Image.file(File(_imageFile!.path)),
+                : Stack(
+              children: [
+                Center(
+                  child: Image.file(
+                    File(_imageFile!.path),
+                    width: MediaQuery.of(context).size.width,
+                    height: MediaQuery.of(context).size.width,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                if (_isLoading)
+                  Center(child: CircularProgressIndicator()),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10.0),
+            child: Text(
+              _predictedObject ?? 'Tahmin yok',
+              style: TextStyle(
+                color: _predictedObject == 'Nesne tespiti yapılamadı. Lütfen tekrar deneyin.'
+                    ? Colors.red
+                    : Colors.green,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(8.0),
@@ -158,53 +211,18 @@ class _CameraScreenState extends State<CameraScreen> {
                 ElevatedButton.icon(
                   onPressed: _takePicture,
                   icon: Icon(Icons.camera_alt, color: Colors.white),
-                  label: Text(
-                    'Take a Photo',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                  ),
+                  label: Text('Fotoğraf Çek', style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
                 ),
                 ElevatedButton.icon(
                   onPressed: _pickImageFromGallery,
                   icon: Icon(Icons.photo, color: Colors.white),
-                  label: Text(
-                    'Select from Gallery',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                  ),
+                  label: Text('Galeriden Seç', style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
                 ),
               ],
             ),
           ),
-          if (_imageFile != null)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                children: [
-                  TextField(
-                    controller: _colorController,
-                    decoration: InputDecoration(labelText: 'Color'),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),//Only letters and spaces
-                    ],
-                    style: TextStyle(color: Colors.blue),
-                  ),
-                  TextField(
-                    controller: _sizeController,
-                    decoration: InputDecoration(labelText: 'Size'),
-                    keyboardType: TextInputType.number, //Only numbers
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly, //Only digits
-                    ],
-                    style: TextStyle(color: Colors.blue),
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     );

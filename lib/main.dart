@@ -1,13 +1,22 @@
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'camera_screen.dart';
-import 'login.dart';
-import 'register.dart';
-import 'forgotpassword.dart';
-import 'home.dart';
+import 'package:gwdg_fdo_application/utils/home.dart';
+import 'package:gwdg_fdo_application/utils/register.dart';
+import 'package:gwdg_fdo_application/views/camera_screen.dart';
+import 'package:gwdg_fdo_application/views/detection.dart';
+import 'package:gwdg_fdo_application/views/forgotpassword.dart';
+import 'package:gwdg_fdo_application/views/login.dart';
 
-void main() {
+
+late List<CameraDescription> cameras;
+
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  cameras = await availableCameras();
   runApp(MyApp());
 }
+
 
 class MyApp extends StatelessWidget {
   @override
@@ -21,6 +30,7 @@ class MyApp extends StatelessWidget {
         '/forgotpassword': (context) => ForgotPasswordScreen(),
         '/home': (context) => HomeScreen(),
         '/camera': (context) => CameraScreen(),
+        '/detection': (context) => DetectionPage(),
       },
     );
   }
