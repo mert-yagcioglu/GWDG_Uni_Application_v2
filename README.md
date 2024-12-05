@@ -68,7 +68,7 @@ Below are screenshots of the project:
 <img src="https://github.com/user-attachments/assets/3ffb2042-99b9-419c-90b9-bddaaed6bcd8" width="250">
 <img src="https://github.com/user-attachments/assets/8383c823-68aa-493c-bd28-6311c9911d41" width="250">
 <img src="https://github.com/user-attachments/assets/88f1c668-2688-4057-8f3d-e5e6b5830f33" width="250">
-<img src="https://github.com/user-attachments/assets/a65af9c0-d242-4295-8c8a-8fb257dae297" width="250">
+
 
 
 
