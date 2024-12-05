@@ -17,7 +17,8 @@ What is FDO?
 
 
 # App Trial Video:
-[short_test.webm](https://github.com/user-attachments/assets/c45a5827-1f71-4779-bfd4-37e506b9de33)
+[app_video.webm](https://github.com/user-attachments/assets/86c25f47-5dc0-425e-889e-6e977d2da332)
+
 
 
 
