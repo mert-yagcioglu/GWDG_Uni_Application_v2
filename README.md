@@ -53,6 +53,8 @@ Follow these steps:
 
 # Photos from the app:
 Below are screenshots of the project:
+
+
 <img src="https://github.com/user-attachments/assets/52706105-a284-4448-b78c-3dc9e9560e21" width="250">
 <img src="https://github.com/user-attachments/assets/1bf4e514-bbae-414c-b3a5-b195039dccd8" width="250">
 <img src="https://github.com/user-attachments/assets/b63d6f7e-d169-4a28-b475-4fa5705444f8" width="250">
